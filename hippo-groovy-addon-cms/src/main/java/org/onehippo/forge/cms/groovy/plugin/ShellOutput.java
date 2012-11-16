@@ -19,6 +19,7 @@ import groovy.lang.GroovySystem;
 
 /**
  * Wrapper used for the output of the groovy shell output.
+ *
  * @author Jeroen Reijn
  */
 public class ShellOutput {
@@ -55,7 +56,7 @@ public class ShellOutput {
     public void printf(String format, Object o) {
         output.append(o.toString());
     }
-    
+
     public String getOutput() {
         return output.toString();
     }

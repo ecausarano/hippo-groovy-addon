@@ -17,17 +17,28 @@
 
 -->
 <wicket:extend xmlns:wicket="http://wicket.apache.org/">
-    <style type="text/css">.CodeMirror {border: 1px solid #eee;font-size: 1.1em;}</style>
+    <style type="text/css">.CodeMirror {
+        border: 1px solid #eee;
+        font-size: 1.1em;
+    }</style>
     <div class="groovy-shell-form">
-        <h2 class="shell-header"><wicket:message key="groovy-shell-info-title"/></h2>
+        <h2 class="shell-header">
+            <wicket:message key="groovy-shell-info-title"/>
+        </h2>
         <hr class="shell-rule"/>
         <form wicket:id="shellform">
             <fieldset id="script">
                 <textarea wicket:id="script"></textarea>
             </fieldset>
             <br/>
-            <div><select wicket:id="scripts"/>&nbsp;<input type="submit" value="Load script" wicket:id="load-script"/>&nbsp;<input wicket:id="fileUpload" type="file"/><input type="submit" value="Upload" wicket:id="ajax-upload"/>&nbsp;<input type="submit" value="Execute script" wicket:id="ajax-button"/></div>
+
+            <div><select wicket:id="language"/>&nbsp;<select wicket:id="scripts"/>&nbsp;<input type="submit"
+                                                                                               value="Load script"
+                                                                                               wicket:id="load-script"/>&nbsp;<input
+                    wicket:id="fileUpload" type="file"/><input type="submit" value="Upload" wicket:id="ajax-upload"/>&nbsp;<input
+                    type="submit" value="Execute script" wicket:id="ajax-button"/></div>
             <br/>
+
             <div class="groovy-shell-feedback">
                 <pre wicket:id="output">[[ feedback ]]</pre>
             </div>

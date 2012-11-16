@@ -15,26 +15,27 @@
  */
 package org.onehippo.forge.cms.groovy.plugin.domain;
 
-import javax.jcr.Node;
-import javax.jcr.RepositoryException;
-
 import org.apache.wicket.Session;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.hippoecm.frontend.session.UserSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.Node;
+import javax.jcr.RepositoryException;
+
 /**
- * Detachable version of a GroovyScript model representing a {@link Node} inside the repository
+ * Detachable version of a Script model representing a {@link Node} inside the repository
+ *
  * @author Jeroen Reijn
  */
-public class DetachableGroovyScriptModel extends LoadableDetachableModel{
+public class DetachableGroovyScriptModel extends LoadableDetachableModel {
 
     private final static Logger logger = LoggerFactory.getLogger(DetachableGroovyScriptModel.class);
 
     private final String path;
 
-    public DetachableGroovyScriptModel(final GroovyScript script) {
+    public DetachableGroovyScriptModel(final Script script) {
         this(script.getPath());
     }
 
@@ -75,10 +76,11 @@ public class DetachableGroovyScriptModel extends LoadableDetachableModel{
         }
         return false;
     }
+
     @Override
     protected Object load() {
         try {
-            return new GroovyScript(getRootNode().getNode(path));
+            return new Script(getRootNode().getNode(path));
         } catch (RepositoryException e) {
             logger.error("Unable to load script, returning null", e);
             return null;

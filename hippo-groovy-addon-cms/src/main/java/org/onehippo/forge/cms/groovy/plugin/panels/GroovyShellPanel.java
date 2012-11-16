@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.wicket.Component;
-import org.apache.wicket.Session;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.AjaxSelfUpdatingTimerBehavior;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
@@ -42,21 +41,15 @@ import org.apache.wicket.model.PropertyModel;
 import org.apache.wicket.model.ResourceModel;
 import org.apache.wicket.util.io.IOUtils;
 import org.apache.wicket.util.time.Duration;
-import org.codehaus.groovy.control.CompilerConfiguration;
-import org.codehaus.groovy.control.customizers.SecureASTCustomizer;
 import org.hippoecm.frontend.plugins.standards.panelperspective.breadcrumb.PanelPluginBreadCrumbPanel;
-import org.hippoecm.frontend.session.UserSession;
-import org.onehippo.forge.cms.groovy.plugin.GroovyShellOutput;
+import org.onehippo.forge.cms.groovy.plugin.ShellOutput;
 import org.onehippo.forge.cms.groovy.plugin.codemirror.CodeMirrorEditor;
-import org.onehippo.forge.cms.groovy.plugin.domain.GroovyScript;
+import org.onehippo.forge.cms.groovy.plugin.domain.Script;
 import org.onehippo.forge.cms.groovy.plugin.provider.GroovyScriptsDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import groovy.lang.GroovyShell;
-import groovy.lang.Script;
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
+import javax.script.*;
 
 /**
  * Panel for executing Groovy scripts
@@ -69,16 +62,14 @@ public class GroovyShellPanel extends PanelPluginBreadCrumbPanel {
 
     private final TextArea textArea;
     private final FileUploadField fileUpload;
-    private GroovyShellOutput output = new GroovyShellOutput();
-    private GroovyShell shell;
-    private GroovyScript selectedScript = null;
+    private ShellOutput output = new ShellOutput();
+    private Script selectedScript = null;
+    private String language = null;
 
     public GroovyShellPanel(final String componentId, final IBreadCrumbModel breadCrumbModel) {
         super(componentId, breadCrumbModel);
 
-        shell = getMinimalSecuredGroovyShell();
-
-        final CompoundPropertyModel<GroovyShellOutput> compoundPropertyModel = new CompoundPropertyModel<GroovyShellOutput>(output);
+        final CompoundPropertyModel<ShellOutput> compoundPropertyModel = new CompoundPropertyModel<ShellOutput>(output);
 
         final Label shellFeedback = new Label("output", compoundPropertyModel);
         shellFeedback.setOutputMarkupId(true);
@@ -106,9 +97,11 @@ public class GroovyShellPanel extends PanelPluginBreadCrumbPanel {
             }
         });
 
-        final List<GroovyScript> groovyScripts = getAvailableGroovyScriptsFromStore(groovyScriptsDataProvider);
+        final List<Script> scripts = getAvailableGroovyScriptsFromStore(groovyScriptsDataProvider);
 
-        addAvailableScriptsInDropdownToForm(form, groovyScripts);
+        addAvailableScriptsInDropdownToForm(form, scripts);
+
+        addAvailableLanguagesInDropdownToForm(form);
 
         // add a button that can be used to submit the form via ajax
         form.add(new AjaxButton("ajax-button", form) {
@@ -117,21 +110,17 @@ public class GroovyShellPanel extends PanelPluginBreadCrumbPanel {
             protected void onSubmit(AjaxRequestTarget target, Form<?> currentForm) {
 
                 String scriptAsString = GroovyShellPanel.this.getScript();
-                Script groovyScript = shell.parse(scriptAsString);
 
-                if (Session.exists()) {
-                    UserSession userSession = (UserSession) Session.get();
-                    groovyScript.setProperty("session", userSession.getJcrSession());
-                    GroovyShellOutput shellOutput = compoundPropertyModel.getObject();
-                    groovyScript.setProperty("out", shellOutput);
-                }
-                try {
-                    groovyScript.run();
-                } catch (Exception e) {
-                    // catch the exception and make it visible for the end user instead of directing it to the log.
-                    output.println(e);
-                }
+                String language = GroovyShellPanel.this.getLanguage();
+                
+                Script script = new Script("boh");
+                script.setLanguage(GroovyShellPanel.this.getLanguage());
+
+                script.setScript(scriptAsString);
+                script.setShellOutput(output);
                 target.addComponent(shellFeedback);
+
+                script.eval();
             }
         });
 
@@ -149,29 +138,58 @@ public class GroovyShellPanel extends PanelPluginBreadCrumbPanel {
         add(form);
     }
 
-    private List<GroovyScript> getAvailableGroovyScriptsFromStore(final GroovyScriptsDataProvider groovyScriptsDataProvider) {
-        final List<GroovyScript> groovyScripts = new ArrayList<GroovyScript>();
+    private List<Script> getAvailableGroovyScriptsFromStore(final GroovyScriptsDataProvider groovyScriptsDataProvider) {
+        final List<Script> scripts = new ArrayList<Script>();
         Iterator iterator = groovyScriptsDataProvider.iterator(0, 10);
         while(iterator.hasNext()) {
-            GroovyScript script = (GroovyScript) iterator.next();
-            groovyScripts.add(script);
+            Script script = (Script) iterator.next();
+            scripts.add(script);
         }
-        return groovyScripts;
+        return scripts;
     }
 
-    private void addAvailableScriptsInDropdownToForm(final Form form, final List<GroovyScript> groovyScripts) {
-        final DropDownChoice<GroovyScript> scriptDropDownChoice = new DropDownChoice<GroovyScript>("scripts",
-                new PropertyModel<GroovyScript>(this, "selectedScript") , groovyScripts, new IChoiceRenderer() {
+    public IModel<String> getTitle(final Component component) {
+        return new ResourceModel("groovy-engine-panel-title");
+    }
+
+    private void addAvailableLanguagesInDropdownToForm(final Form form) {
+
+        List<ScriptEngineFactory> factories = new ScriptEngineManager().getEngineFactories();
+
+        List<String> languages = new ArrayList<String>();
+
+        for (ScriptEngineFactory factory : factories) {
+            languages.add(factory.getLanguageName());
+        }
+
+        final DropDownChoice<String> languageDropdownChoice =
+                new DropDownChoice<String>("language",new PropertyModel<String>(this, "language"), languages);
+
+        languageDropdownChoice.add(new AjaxFormComponentUpdatingBehavior("onchange") {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+            }
+        });
+
+        languageDropdownChoice.setOutputMarkupId(true);
+        form.add(languageDropdownChoice);
+    }
+
+    private void addAvailableScriptsInDropdownToForm(final Form form, final List<Script> scripts) {
+        final DropDownChoice<Script> scriptDropDownChoice = new DropDownChoice<Script>("scripts",
+                new PropertyModel<Script>(this, "selectedScript") , scripts, new IChoiceRenderer() {
 
             @Override
             public Object getDisplayValue(final Object object) {
-                GroovyScript script = (GroovyScript) object;
+                Script script = (Script) object;
                 return script.getName();
             }
 
             @Override
             public String getIdValue(final Object object, final int i) {
-                GroovyScript script = (GroovyScript) object;
+                Script script = (Script) object;
                 return script.getPath();
             }
         }) {
@@ -189,9 +207,9 @@ public class GroovyShellPanel extends PanelPluginBreadCrumbPanel {
 
             @Override
             protected void onSubmit(final AjaxRequestTarget ajaxRequestTarget, final Form<?> form) {
-                GroovyScript groovyScript = scriptDropDownChoice.getModelObject();
-                if(groovyScript != null) {
-                    GroovyShellPanel.this.setScript(groovyScript.getScript());
+                Script script = scriptDropDownChoice.getModelObject();
+                if(script != null) {
+                    GroovyShellPanel.this.setScript(script.getScript());
                 }
                 ajaxRequestTarget.addComponent(form);
             }
@@ -200,26 +218,10 @@ public class GroovyShellPanel extends PanelPluginBreadCrumbPanel {
 
         scriptDropDownChoice.setOutputMarkupId(true);
         form.add(scriptDropDownChoice);
-        if(groovyScripts.size() == 0) {
+        if(scripts.size() == 0) {
             scriptDropDownChoice.setVisible(false);
             loadScript.setVisible(false);
         }
-    }
-
-    private GroovyShell getMinimalSecuredGroovyShell() {
-        final SecureASTCustomizer customizer = new SecureASTCustomizer();
-        customizer.setImportsBlacklist(unmodifiableList(asList(
-                "java.lang.System", "groovy.lang.GroovyShell",
-                "groovy.lang.GroovyClassLoader")));
-        customizer.setIndirectImportCheckEnabled(true);
-
-        CompilerConfiguration configuration = new CompilerConfiguration();
-        configuration.addCompilationCustomizers(customizer);
-        return new GroovyShell(configuration);
-    }
-
-    public IModel<String> getTitle(final Component component) {
-        return new ResourceModel("groovy-shell-panel-title");
     }
 
     public String getScript() {
@@ -228,5 +230,13 @@ public class GroovyShellPanel extends PanelPluginBreadCrumbPanel {
 
     public void setScript(String newScript) {
         textArea.setModelObject(newScript);
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
     }
 }
