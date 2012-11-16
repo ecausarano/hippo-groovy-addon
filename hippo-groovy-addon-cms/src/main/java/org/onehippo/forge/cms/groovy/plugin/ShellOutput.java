@@ -21,13 +21,13 @@ import groovy.lang.GroovySystem;
  * Wrapper used for the output of the groovy shell output.
  * @author Jeroen Reijn
  */
-public class GroovyShellOutput {
+public class ShellOutput {
 
     private static final String GROOVY_VERSION = GroovySystem.getVersion();
 
     private StringBuffer output;
 
-    public GroovyShellOutput() {
+    public ShellOutput() {
         output = new StringBuffer();
     }
 

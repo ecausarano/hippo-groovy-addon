@@ -29,7 +29,7 @@ import org.hippoecm.repository.api.NodeNameCodec;
  * Simple domain object representing a Groovy script.
  * @author Jeroen Reijn
  */
-public class GroovyScript implements Comparable, IClusterable{
+public class Script implements Comparable, IClusterable{
 
     private final static String STORAGE_LOCATION = "content/scripts/groovy/";
 
@@ -38,11 +38,11 @@ public class GroovyScript implements Comparable, IClusterable{
     private String path;
     private transient Node node;
 
-    public GroovyScript(final String name) {
+    public Script(final String name) {
         this.name = name;
     }
 
-    public GroovyScript(Node node) throws RepositoryException {
+    public Script(Node node) throws RepositoryException {
         this.path = node.getPath().substring(1);
         this.name = NodeNameCodec.decode(node.getName());
         this.script = node.getProperty("script").getString();
@@ -74,7 +74,7 @@ public class GroovyScript implements Comparable, IClusterable{
 
     public String toString()
     {
-        return "[GroovyScript name=" + name + " script=" + script + "]";
+        return "[Script name=" + name + " script=" + script + "]";
     }
 
     @Override
